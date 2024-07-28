@@ -27,6 +27,7 @@ Cargo.lock
 *.pdb
 
 send-email-result
+send-email-af
 
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
