@@ -8,4 +8,6 @@ warp = "0.3"
 tokio = { version = "1", features = ["rt", "macros", "rt-multi-thread"] }
 lettre = "0.11.7"
 uuid = "1.10.0"
-native-tls = "0.2"
+
+[env]
+RUST_BACKTRACE=1
