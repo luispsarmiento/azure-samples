@@ -1,27 +1,24 @@
 extern crate uuid;
 extern crate lettre;
 
-use std::collections::HashMap;
 use std::env;
 use std::net::Ipv4Addr;
-use warp::{http::Response, Filter};
+use warp::{Filter};
 
 use lettre::{Message, SmtpTransport, Transport};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use lettre::transport::smtp::PoolConfig;
+use serde::Deserialize;
 
 #[tokio::main]
 async fn main() {
     
-    let example1 = warp::get()
-        .and(warp::path("api"))
-        .and(warp::path("send-email"))
-        .and(warp::query::<HashMap<String, String>>())
-        .map(|p: HashMap<String, String>| match p.get("name") {
-            //sendEmail("Web Form".to_string(), "j.louis1493@gmail.com".to_string());
-            Some(name) => Response::builder().body(format!("Hello, {}. This HTTP triggered function executed successfully.", name)),
-            None => Response::builder().body(String::from("This HTTP triggered function executed successfully. Pass a name in the query string for a personalized response.")),
-        });
+    let af = warp::post()
+            .and(warp::path("api"))
+            .and(warp::path("send-email"))
+            .and(warp::body::content_length_limit(1024 * 16))
+            .and(warp::body::json())
+            .and_then(send_email);
 
     let port_key = "FUNCTIONS_CUSTOMHANDLER_PORT";
     let port: u16 = match env::var(port_key) {
@@ -29,16 +26,26 @@ async fn main() {
         Err(_) => 3000,
     };
 
-    warp::serve(example1).run((Ipv4Addr::LOCALHOST, port)).await
+    warp::serve(af).run((Ipv4Addr::LOCALHOST, port)).await
 }
 
 // SEND EMAIL SECTION
-fn sendEmail(emisor: String, emisorEmail: String){
-    let server = "smtp.ionos.mx";
+#[derive(Deserialize)]
+pub struct EmailMessageModel {
+    pub name: String,
+    pub email: String,
+    pub body: String
+}
 
-    let sender = SmtpTransport::starttls_relay(server)
+async fn send_email(email_message: EmailMessageModel) -> Result<impl warp::Reply, warp::Rejection> {
+    let server = env::var("SERVER_SMTP").expect("SERVER_SMTP must be set");
+    let username_smtp = env::var("USERNAME_SMTP").expect("USERNAME_SMTP must be set");
+    let password_smtp = env::var("PASSWORD_SMTP").expect("PASSWORD_SMTP must be set");
+    let to_email = env::var("TO_EMAIL").expect("TO_EMAIL must be set");
+
+    let sender = SmtpTransport::starttls_relay(&server)
                     .expect("Failed to create transport")
-                    .credentials(Credentials::new("contacto@luispsarmiento.com".to_string(), "pass".to_string()))
+                    .credentials(Credentials::new(username_smtp.to_string(), password_smtp.to_string()))
                     // Configure expected authentication mechanism
                     .authentication(vec![Mechanism::Plain])
                     // Connection pool settings
@@ -46,13 +53,18 @@ fn sendEmail(emisor: String, emisorEmail: String){
                     .build();
 
     let email = Message::builder()
-                    .from("NoBody <contacto@luispsarmiento.com>".parse().unwrap())
-                    .reply_to("Some <j.louis1493@gmail.com>".parse().unwrap())
-                    .to("Yuin <sm@luispsarmiento.com>".parse().unwrap())
-                    .subject("Happy new year")
-                    .body(String::from("Be happy!"))
+                    .from(format!("NoBody <{}>", username_smtp).parse().unwrap())
+                    .reply_to(format!("{} <{}>", email_message.name, email_message.email).parse().unwrap())
+                    .to(format!("Web Form <{}>", to_email).parse().unwrap())
+                    .subject("Interesado en colaborar contigo")
+                    .body(String::from(email_message.body))
                     .unwrap();
 
     let result = sender.send(&email);
-    result.expect("Failed to send the report");
+    
+    if result.is_ok() {
+        return Ok(warp::reply());
+    }
+
+    return Err(warp::reject());
 }

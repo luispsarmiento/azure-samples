@@ -14,7 +14,7 @@
   },
   "customHandler": {
     "description": {
-      "defaultExecutablePath": "send-email-result",
+      "defaultExecutablePath": "send-email-af",
       "workingDirectory": "",
       "arguments": []
     },
