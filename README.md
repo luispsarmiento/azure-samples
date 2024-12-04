@@ -1,5 +1,5 @@
 # azure-templates
-A collection of templates that implement various Azure cloud services.
+A collection of samples that implement various Azure cloud services.
 
 ## Send Email function
 ### Compile to run localy
